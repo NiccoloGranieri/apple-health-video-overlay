@@ -4,3 +4,7 @@
 # Video and CSV Files
 *.mov
 *.csv
+*.json
+
+# VSCode Stuff
+/.vscode
