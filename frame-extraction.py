@@ -6,14 +6,21 @@ import sys
 import csv
 import json
 import datetime
-import ffmpeg # Video Metadata
+import ffmpeg
+
+# ToDo: Write a README
+# ToDo: Remove capitalisation in file extension search (i.e. mov MOV)
+# ToDo: Simplify moving HR to one of the corners of the image
+# ToDo: Start considering TimeStamps of every reading to make HR plotting more accurate
+# ToDo: Start thinking of ways of automatically accepting videos from different cameras (i.e. GoPro)
+# ToDo: Look at other data that could be potentially plotted
 
 parent = os.getcwd()
 
 heart = cv2.imread("heart.png")
 
 for file in os.listdir(parent):
-    if file.endswith(".MOV"):
+    if file.endswith(".mov"):
       videoPath = os.path.join(parent, file)
     if file.endswith(".json"):
       workoutData = open(os.path.join(parent, file))
@@ -75,7 +82,7 @@ while success:
   bg_color = (0,0,0)
   bg = np.full((currentFrame.shape), bg_color, dtype=np.uint8)
 
-  cv2.putText(bg, str(hr[hrUpdate]), (50, 250), font, 3, (0, 0, 255), 2, cv2.LINE_4)
+  cv2.putText(bg, str(hr[hrUpdate]), (80, 1000), font, 3, (0, 0, 255), 2, cv2.LINE_4)
 
   x,y,w,h = cv2.boundingRect(bg[:,:,2])
 
@@ -89,8 +96,6 @@ while success:
   result[y:y+h, x:x+w] = bg[y:y+h, x:x+w]
 
   writer.write(result)
-
-  # img3[100:400,100:400,:] = img2[100:400,100:400,:]
 
   success,currentFrame = vidcap.read()
 
