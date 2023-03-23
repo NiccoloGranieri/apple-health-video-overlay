@@ -1,7 +1,6 @@
 import os
 import cv2
 import numpy as np
-from blend_modes import difference
 import sys
 import csv
 import json
@@ -14,6 +13,7 @@ import ffmpeg
 # ToDo: Start considering TimeStamps of every reading to make HR plotting more accurate
 # ToDo: Start thinking of ways of automatically accepting videos from different cameras (i.e. GoPro)
 # ToDo: Look at other data that could be potentially plotted
+# ToDo: Re-Add audio to exported video 
 
 parent = os.getcwd()
 
