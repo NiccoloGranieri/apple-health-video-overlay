@@ -31,16 +31,33 @@ format = jsonMetadata["format"]
 
 for i in jsonMetadata["streams"]:
   if i.get("index") == 0:
-    vidW = i.get("width")
-    vidH = i.get("height")
-    vidFR = float(i.get("r_frame_rate")[:-2])
+    tags = i.get("tags")
+    for key in tags:
+      if "GoPro" in tags[key]:
+        videoProvenance = "GoPro"
+      else:
+        videoProvenance = "iPhone"
     vidLen = int(float(i.get("duration")))
     nested = format["tags"]
-    vidCrT = nested.get("com.apple.quicktime.creationdate")[:-5]
-    adjVidCrT = datetime.datetime.strptime(vidCrT, '%Y-%m-%dT%H:%M:%S')
-    vidEndT = adjVidCrT + datetime.timedelta(seconds=vidLen)
-    usefulMeta = [vidW, vidH, vidFR, vidLen, adjVidCrT, vidEndT]
-   
+    if videoProvenance != "GoPro":
+      vidW = i.get("width")
+      vidH = i.get("height")
+      vidFR = float(i.get("r_frame_rate")[:-2])
+      vidCrT = nested.get("com.apple.quicktime.creationdate")[:-5]
+    else:
+      vidFR = 120
+      vidCrT = nested.get("creation_time")[:-8]
+  elif i.get("index") == 1:
+    if videoProvenance == "GoPro":
+      vidW = i.get("width")
+      vidH = i.get("height")    
+
+adjVidCrT = datetime.datetime.strptime(vidCrT, '%Y-%m-%dT%H:%M:%S')
+vidEndT = adjVidCrT + datetime.timedelta(seconds=vidLen)
+usefulMeta = [vidW, vidH, vidFR, vidLen, adjVidCrT, vidEndT]
+
+print(usefulMeta)
+
 hr = []
 
 data = json.load(workoutData)
@@ -70,7 +87,6 @@ count = 0
 fourcc = cv2.VideoWriter_fourcc(*"mp4v")
 writer = cv2.VideoWriter(sys.path[0] + "/overlayed.mov", fourcc, usefulMeta[2], (usefulMeta[1], usefulMeta[0]))
 
-img_array = []
 count = 0
 hrUpdate = 0
 textPadding = 10
