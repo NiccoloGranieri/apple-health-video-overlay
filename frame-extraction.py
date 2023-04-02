@@ -6,6 +6,7 @@ import csv
 import json
 import datetime
 import ffmpeg
+import copy
 
 # ToDo: Write a README
 # ToDo: Remove capitalisation in file extension search (i.e. mov MOV)
@@ -14,6 +15,8 @@ import ffmpeg
 # ToDo: Start thinking of ways of automatically accepting videos from different cameras (i.e. GoPro)
 # ToDo: Look at other data that could be potentially plotted
 # ToDo: Re-Add audio to exported video 
+
+os.remove("overlayed.mov")
 
 parent = os.getcwd()
 
