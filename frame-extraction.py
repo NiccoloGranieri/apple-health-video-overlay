@@ -85,6 +85,7 @@ hrFrameUpdate = (usefulMeta[2] * vidLen) / len(hr)
 
 vidcap = cv2.VideoCapture(videoPath)
 success,currentFrame = vidcap.read()
+success,previousFrame = vidcap.read()
 count = 0
 
 fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -116,11 +117,38 @@ while success:
 
   writer.write(result)
 
+  previousFrameBW = cv2.cvtColor(copy.deepcopy(currentFrame), cv2.COLOR_BGR2GRAY)
   success,currentFrame = vidcap.read()
 
+  if success:
+    currentFrameBW = cv2.cvtColor(currentFrame, cv2.COLOR_BGR2GRAY)
+
+  comparison = cv2.absdiff(previousFrameBW, currentFrameBW)
+  thresh = 55
+  comparison[comparison < thresh] = 0
+  comparison[comparison >= thresh] = 255
+  
+  if count == 0:
+    # interpPF = np.interp(previousFrameBW, (0, 255), (0, 1))
+    # interpCF = np.interp(currentFrameBW, (0, 255), (0, 1))
+    # accumulateFrames = np.add(interpPF, interpCF)
+    interComp = np.interp(comparison, (0, 255), (0, 1))
+    accumulateFrames = copy.deepcopy(interComp)
+  else:
+    # interpPF = np.interp(comparison, (0, 255), (0, 1))
+    # accumulateFrames = np.add(comparison, accumulateFrames)
+    interComp = np.interp(comparison, (0, 255), (0, 1))
+    add = np.add(accumulateFrames, interComp)
+    accumulateFrames = copy.deepcopy(add)
+  
+  cv2.imshow('result', accumulateFrames)
+  cv2.waitKey(1)
+  print(accumulateFrames)
+  
   count += 1
 
   if count % int(hrFrameUpdate) == 0 and hrUpdate < len(hr) - 1:
     hrUpdate += 1
 
 writer.release()
+# showFrames = np.interp(accumulateFrames, (accumulateFrames.min(), accumulateFrames.max() ), (0, 1))
