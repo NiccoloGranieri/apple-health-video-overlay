@@ -2,11 +2,9 @@ import os
 import cv2
 import numpy as np
 import sys
-import csv
 import json
 import datetime
 import ffmpeg
-import copy
 
 # ToDo: Write a README
 # ToDo: Simplify moving HR to one of the corners of the image
@@ -50,24 +48,27 @@ vidEndT = adjVidCrT + datetime.timedelta(seconds=vidLen)
 usefulMeta = [vidW, vidH, vidFR, vidLen, adjVidCrT, vidEndT]
 
 timestampedHR = []
+timestampedKCAL = []
 
 data = json.load(workoutDataPath)
 
 min = "00:00:00"
 max = str(datetime.time(0, int(usefulMeta[3] / 60), usefulMeta[3] % 60))
-
 for i in data["laps"][0]["points"]:
-    if i.get("hr"):
-        hrTime = datetime.datetime.fromtimestamp(i.get("time"))
-        delta = hrTime - usefulMeta[4]
-        try:
-          if datetime.datetime.strptime(str(delta), "%H:%M:%S") >= datetime.datetime.strptime(min, "%H:%M:%S"):
-            if datetime.datetime.strptime(str(delta), "%H:%M:%S") <= datetime.datetime.strptime(max, "%H:%M:%S"):
-              timestampedHR.append([hrTime, i.get("hr")])
-        except:
-           pass
+      readingTime = datetime.datetime.fromtimestamp(i.get("time"))
+      delta = readingTime - usefulMeta[4] if readingTime > usefulMeta[4] else "00:00:00"
+      if datetime.datetime.strptime(str(delta), "%H:%M:%S") > datetime.datetime.strptime(min, "%H:%M:%S"):
+        if datetime.datetime.strptime(str(delta), "%H:%M:%S") <= datetime.datetime.strptime(max, "%H:%M:%S"):
+          if i.get("hr"):
+            timestampedHR.append([readingTime, i.get("hr")])
+          if i.get("kcal"):
+            timestampedKCAL.append([readingTime, i.get("kcal")])
         
 timestampedHR.sort()
+timestampedKCAL.sort()
+
+print(len(timestampedHR))
+print(len(timestampedKCAL))
 
 vidcap = cv2.VideoCapture(videoPath)
 
@@ -92,6 +93,7 @@ count = 0
 hrUpdate = 0
 textPadding = 10
 time = usefulMeta[4]
+kcal = timestampedKCAL[hrUpdate][1]
 
 print("Processing video...")
 if videoProvenance == "GoPro":
@@ -116,27 +118,36 @@ if videoProvenance == "GoPro":
       bg_color = (0,0,0)
       
       try:
-        bg = np.full((sqrFrame.shape), bg_color, dtype=np.uint8)
+        hrFrame = np.full((sqrFrame.shape), bg_color, dtype=np.uint8)
+        kcalFrame = np.full((sqrFrame.shape), bg_color, dtype=np.uint8)
       except:
         pass
       
-      cv2.putText(bg, str(timestampedHR[hrUpdate][1]), (80, sqrFrame.shape[1] - 200), font, 7, (0, 0, 255), 10, cv2.LINE_AA)
+      cv2.putText(hrFrame, str(timestampedHR[hrUpdate][1]), (80, sqrFrame.shape[1] - 200), font, 7, (0, 0, 255), 10, cv2.LINE_AA)
+      cv2.putText(kcalFrame, str(f'{kcal:.2f}'), (80, 200), font, 7, (0, 0, 255), 10, cv2.LINE_AA)
 
-      x,y,w,h = cv2.boundingRect(bg[:,:,2])
+      xHR,yHR,wHR,hHR = cv2.boundingRect(hrFrame[:,:,2])
+      xKCAL,yKCAL,wKCAL,hKCAL = cv2.boundingRect(kcalFrame[:,:,2])
       
-      x -= textPadding
-      y -= textPadding
-      h += textPadding * 2
-      w += textPadding * 2 + h
+      xHR -= textPadding
+      yHR -= textPadding
+      hHR += textPadding * 2
+      wHR += textPadding * 2 + hHR
 
-      bg[y:y+180,x+w-180:x+w,:] = heart[0:180,0:180,:]
+      xKCAL -= textPadding
+      yKCAL -= textPadding
+      hKCAL += textPadding * 2
+      wKCAL += textPadding * 2 + hKCAL
+
+      hrFrame[yHR:yHR+180,xHR+wHR-180:xHR+wHR,:] = heart[0:180,0:180,:]
       
       try:
         result = sqrFrame.copy()
       except:
         pass
 
-      result[y:y+h, x:x+w] = bg[y:y+h, x:x+w]
+      result[yHR:yHR+hHR, xHR:xHR+wHR] = hrFrame[yHR:yHR+hHR, xHR:xHR+wHR]
+      result[yKCAL:yKCAL+hKCAL, xKCAL:xKCAL+wKCAL] = kcalFrame[yKCAL:yKCAL+hKCAL, xKCAL:xKCAL+wKCAL]
       
       writer.write(result)
 
@@ -149,6 +160,7 @@ if videoProvenance == "GoPro":
         pass
       elif time >= timestampedHR[hrUpdate][0] and hrUpdate < len(timestampedHR) - 1:
         hrUpdate += 1
+        kcal += timestampedKCAL[hrUpdate][1]
         
       frameIndex += 1
 
