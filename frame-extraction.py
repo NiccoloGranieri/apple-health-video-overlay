@@ -16,7 +16,6 @@ import copy
 # ToDo: Look at other data that could be potentially plotted
 # ToDo: Re-Add audio to exported video 
 
-os.remove("overlayed.mov")
 
 parent = os.getcwd()
 
@@ -124,3 +123,6 @@ while success:
     hrUpdate += 1
 
 writer.release()
+os.rename(videoPath, os.path.join(parent, "Done", videoFile))
+os.rename(os.path.join(parent, workoutDataFile), os.path.join(parent, "Done", workoutDataFile))
+os.rename(os.path.join(parent, "overlayed.mov"), os.path.join(parent, "Exports", str(datetime.datetime.today().replace(microsecond=0)).replace(" ", "_") + ".mov"))
