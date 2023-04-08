@@ -23,9 +23,16 @@ heart = cv2.imread("heart.png")
 
 for file in os.listdir(parent):
     if file.endswith(".mov"):
+      videoFile = file
       videoPath = os.path.join(parent, file)
+      videoProvenance = "iPhone"
+    if file.endswith(".MP4"):
+      videoFile = file
+      videoPath = os.path.join(parent, file)
+      videoProvenance = "GoPro"
     if file.endswith(".json"):
-      workoutData = open(os.path.join(parent, file))
+      workoutDataFile = file
+      workoutDataPath = open(os.path.join(parent, file))
 
 jsonMetadata = ffmpeg.probe(videoPath)
 
@@ -62,7 +69,7 @@ print(usefulMeta)
 
 hr = []
 
-data = json.load(workoutData)
+data = json.load(workoutDataPath)
 
 min = "00:00:00"
 max = str(datetime.time(0, int(usefulMeta[3] / 60), usefulMeta[3] % 60))
