@@ -68,6 +68,7 @@ usefulMeta = [vidW, vidH, vidFR, vidLen, adjVidCrT, vidEndT]
 print(usefulMeta)
 
 hr = []
+timestampedHR = []
 
 data = json.load(workoutDataPath)
 
@@ -82,10 +83,13 @@ for i in data["laps"][0]["points"]:
           if datetime.datetime.strptime(str(delta), "%H:%M:%S") >= datetime.datetime.strptime(min, "%H:%M:%S"):
             if datetime.datetime.strptime(str(delta), "%H:%M:%S") <= datetime.datetime.strptime(max, "%H:%M:%S"):
               hr.append(i.get("hr"))
+              timestampedHR.append([hrTime, i.get("hr")])
         except:
            pass
         # print(i.get("time"))
         # print(datetime.datetime.fromtimestamp(i.get("time")))
+timestampedHR.sort()
+print(timestampedHR)
 
 hrFrameUpdate = (usefulMeta[2] * vidLen) / len(hr)
 
@@ -99,35 +103,103 @@ writer = cv2.VideoWriter(sys.path[0] + "/overlayed.mov", fourcc, usefulMeta[2], 
 count = 0
 hrUpdate = 0
 textPadding = 10
+time = usefulMeta[4]
 
 print("Processing video...")
-while success:
-  font = cv2.FONT_HERSHEY_SIMPLEX
+if videoProvenance == "GoPro":
+  expectedFrameCount = int(vidcap.get(cv2.CAP_PROP_FRAME_COUNT))
+  frameIndex = 0
 
-  bg_color = (0,0,0)
-  bg = np.full((currentFrame.shape), bg_color, dtype=np.uint8)
+  while frameIndex < expectedFrameCount and frameIndex >= 0:
+      print("Frame {} of {}".format(frameIndex, expectedFrameCount))
+      ret, frame = vidcap.read()
+      
+      if orientation == "Horizontal":
+        sqrFrame = cv2.copyMakeBorder(frame, int((usefulMeta[0] - usefulMeta[1]) / 2), int((usefulMeta[0] - usefulMeta[1]) / 2), 0, 0, cv2.BORDER_CONSTANT, 0)
+      else:
+        sqrFrame = cv2.copyMakeBorder(frame, 0, 0, int((usefulMeta[1] - usefulMeta[0]) / 2), int((usefulMeta[1] - usefulMeta[0]) / 2), cv2.BORDER_CONSTANT, 0)
+      
+      if not ret:
+        frameIndex -= 1
+        continue
 
-  cv2.putText(bg, str(hr[hrUpdate]), (80, 1000), font, 3, (0, 0, 255), 2, cv2.LINE_4)
+      # if not frameIndex % 4 == 0:
+      #   frameIndex += 1
+      #   continue
 
-  x,y,w,h = cv2.boundingRect(bg[:,:,2])
+      font = cv2.FONT_HERSHEY_SIMPLEX
 
-  bg[y:y+66,x+w+5:x+w+71,:] = heart[0:66,0:66,:]
+      bg_color = (0,0,0)
+      
+      try:
+        bg = np.full((sqrFrame.shape), bg_color, dtype=np.uint8)
+      except:
+        pass
+      
+      cv2.putText(bg, str(timestampedHR[hrUpdate][1]), (80, sqrFrame.shape[1] - 200), font, 7, (0, 0, 255), 10, cv2.LINE_AA)
 
-  x -= textPadding
-  y -= textPadding
-  w += textPadding * 2 + 66
-  h += textPadding * 2
-  result = currentFrame.copy()
-  result[y:y+h, x:x+w] = bg[y:y+h, x:x+w]
+      x,y,w,h = cv2.boundingRect(bg[:,:,2])
+      
+      x -= textPadding
+      y -= textPadding
+      h += textPadding * 2
+      w += textPadding * 2 + h
 
-  writer.write(result)
+      bg[y:y+180,x+w-180:x+w,:] = heart[0:180,0:180,:]
+      
+      try:
+        result = sqrFrame.copy()
+      except:
+        print(frame)
 
+      result[y:y+h, x:x+w] = bg[y:y+h, x:x+w]
+      
+      writer.write(result)
+
+      count += 1
+
+      # if count % int(hrFrameUpdate) == 0 and hrUpdate < len(hr) - 1:
+      #   hrUpdate += 1
+
+      if count % usefulMeta[2] == 0:
+        time += datetime.timedelta(0,1)
+      
+      if time < timestampedHR[hrUpdate][0]:
+        pass
+      elif time >= timestampedHR[hrUpdate][0] and hrUpdate < len(timestampedHR) - 1:
+        hrUpdate += 1
+        
+      frameIndex += 1
+
+else:
   success,currentFrame = vidcap.read()
+  while success:
+    font = cv2.FONT_HERSHEY_SIMPLEX
 
-  count += 1
+    bg_color = (0,0,0)
+    bg = np.full((currentFrame.shape), bg_color, dtype=np.uint8)
 
-  if count % int(hrFrameUpdate) == 0 and hrUpdate < len(hr) - 1:
-    hrUpdate += 1
+    cv2.putText(bg, str(hr[hrUpdate]), (80, 1000), font, 3, (0, 0, 255), 2, cv2.LINE_4)
+
+    x,y,w,h = cv2.boundingRect(bg[:,:,2])
+
+    bg[y:y+66,x+w+5:x+w+71,:] = heart[0:66,0:66,:]
+
+    x -= textPadding
+    y -= textPadding
+    w += textPadding * 2 + 66
+    h += textPadding * 2
+    result = currentFrame.copy()
+    result[y:y+h, x:x+w] = bg[y:y+h, x:x+w]
+
+    writer.write(result)
+
+    success,currentFrame = vidcap.read()
+
+    count += 1
+
+    if count % int(hrFrameUpdate) == 0 and hrUpdate < len(hr) - 1:
+      hrUpdate += 1
 
 writer.release()
 os.rename(videoPath, os.path.join(parent, "Done", videoFile))
