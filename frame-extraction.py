@@ -10,8 +10,6 @@ import copy
 
 # ToDo: Write a README
 # ToDo: Simplify moving HR to one of the corners of the image
-# ToDo: Start considering TimeStamps of every reading to make HR plotting more accurate
-# ToDo: Start thinking of ways of automatically accepting videos from different cameras (i.e. GoPro)
 # ToDo: Look at other data that could be potentially plotted
 # ToDo: Re-Add audio to exported video 
 
@@ -33,8 +31,6 @@ for file in os.listdir(parent):
 
 jsonMetadata = ffmpeg.probe(videoPath)
 
-# print(jsonMetadata)
-
 format = jsonMetadata["format"]
 
 for i in jsonMetadata["streams"]:
@@ -53,9 +49,6 @@ adjVidCrT = datetime.datetime.strptime(vidCrT, '%Y-%m-%dT%H:%M:%S')
 vidEndT = adjVidCrT + datetime.timedelta(seconds=vidLen)
 usefulMeta = [vidW, vidH, vidFR, vidLen, adjVidCrT, vidEndT]
 
-# print(usefulMeta)
-
-hr = []
 timestampedHR = []
 
 data = json.load(workoutDataPath)
@@ -70,15 +63,11 @@ for i in data["laps"][0]["points"]:
         try:
           if datetime.datetime.strptime(str(delta), "%H:%M:%S") >= datetime.datetime.strptime(min, "%H:%M:%S"):
             if datetime.datetime.strptime(str(delta), "%H:%M:%S") <= datetime.datetime.strptime(max, "%H:%M:%S"):
-              hr.append(i.get("hr"))
               timestampedHR.append([hrTime, i.get("hr")])
         except:
            pass
         
 timestampedHR.sort()
-print(timestampedHR)
-
-hrFrameUpdate = (usefulMeta[2] * vidLen) / len(hr)
 
 vidcap = cv2.VideoCapture(videoPath)
 
@@ -122,10 +111,6 @@ if videoProvenance == "GoPro":
         frameIndex -= 1
         continue
 
-      # if not frameIndex % 4 == 0:
-      #   frameIndex += 1
-      #   continue
-
       font = cv2.FONT_HERSHEY_SIMPLEX
 
       bg_color = (0,0,0)
@@ -149,16 +134,13 @@ if videoProvenance == "GoPro":
       try:
         result = sqrFrame.copy()
       except:
-        print(frame)
+        pass
 
       result[y:y+h, x:x+w] = bg[y:y+h, x:x+w]
       
       writer.write(result)
 
       count += 1
-
-      # if count % int(hrFrameUpdate) == 0 and hrUpdate < len(hr) - 1:
-      #   hrUpdate += 1
 
       if count % usefulMeta[2] == 0:
         time += datetime.timedelta(0,1)
@@ -172,33 +154,53 @@ if videoProvenance == "GoPro":
 
 else:
   success,currentFrame = vidcap.read()
+  frameIndex = 0
   while success:
-    font = cv2.FONT_HERSHEY_SIMPLEX
+      if orientation == "Horizontal":
+        sqrFrame = cv2.copyMakeBorder(currentFrame, int((usefulMeta[0] - usefulMeta[1]) / 2), int((usefulMeta[0] - usefulMeta[1]) / 2), 0, 0, cv2.BORDER_CONSTANT, 0)
+      else:
+        sqrFrame = cv2.copyMakeBorder(currentFrame, 0, 0, int((usefulMeta[1] - usefulMeta[0]) / 2), int((usefulMeta[1] - usefulMeta[0]) / 2), cv2.BORDER_CONSTANT, 0)
+      
+      font = cv2.FONT_HERSHEY_SIMPLEX
 
-    bg_color = (0,0,0)
-    bg = np.full((currentFrame.shape), bg_color, dtype=np.uint8)
+      bg_color = (0,0,0)
+      
+      try:
+        bg = np.full((sqrFrame.shape), bg_color, dtype=np.uint8)
+      except:
+        pass
+      
+      cv2.putText(bg, str(timestampedHR[hrUpdate][1]), (80, sqrFrame.shape[1] - 200), font, 7, (0, 0, 255), 10, cv2.LINE_AA)
 
-    cv2.putText(bg, str(hr[hrUpdate]), (80, 1000), font, 3, (0, 0, 255), 2, cv2.LINE_4)
+      x,y,w,h = cv2.boundingRect(bg[:,:,2])
+      
+      x -= textPadding
+      y -= textPadding
+      h += textPadding * 2
+      w += textPadding * 2 + h
 
-    x,y,w,h = cv2.boundingRect(bg[:,:,2])
+      bg[y:y+180,x+w-180:x+w,:] = heart[0:180,0:180,:]
+      
+      try:
+        result = sqrFrame.copy()
+      except:
+        pass
 
-    bg[y:y+66,x+w+5:x+w+71,:] = heart[0:66,0:66,:]
+      result[y:y+h, x:x+w] = bg[y:y+h, x:x+w]
+      
+      writer.write(result)
 
-    x -= textPadding
-    y -= textPadding
-    w += textPadding * 2 + 66
-    h += textPadding * 2
-    result = currentFrame.copy()
-    result[y:y+h, x:x+w] = bg[y:y+h, x:x+w]
+      count += 1
 
-    writer.write(result)
-
-    success,currentFrame = vidcap.read()
-
-    count += 1
-
-    if count % int(hrFrameUpdate) == 0 and hrUpdate < len(hr) - 1:
-      hrUpdate += 1
+      if count % usefulMeta[2] == 0:
+        time += datetime.timedelta(0,1)
+      
+      if time < timestampedHR[hrUpdate][0]:
+        pass
+      elif time >= timestampedHR[hrUpdate][0] and hrUpdate < len(timestampedHR) - 1:
+        hrUpdate += 1
+        
+      frameIndex += 1
 
 writer.release()
 os.rename(videoPath, os.path.join(parent, "Done", videoFile))
