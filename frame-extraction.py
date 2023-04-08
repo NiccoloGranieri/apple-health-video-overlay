@@ -16,9 +16,7 @@ import copy
 # ToDo: Look at other data that could be potentially plotted
 # ToDo: Re-Add audio to exported video 
 
-
 parent = os.getcwd()
-
 heart = cv2.imread("heart.png")
 
 for file in os.listdir(parent):
@@ -36,36 +34,27 @@ for file in os.listdir(parent):
 
 jsonMetadata = ffmpeg.probe(videoPath)
 
+# print(jsonMetadata)
+
 format = jsonMetadata["format"]
 
 for i in jsonMetadata["streams"]:
   if i.get("index") == 0:
-    tags = i.get("tags")
-    for key in tags:
-      if "GoPro" in tags[key]:
-        videoProvenance = "GoPro"
-      else:
-        videoProvenance = "iPhone"
+    vidW = i.get("width")
+    vidH = i.get("height")    
     vidLen = int(float(i.get("duration")))
     nested = format["tags"]
+    vidFR = float(i.get("r_frame_rate")[:-2])
     if videoProvenance != "GoPro":
-      vidW = i.get("width")
-      vidH = i.get("height")
-      vidFR = float(i.get("r_frame_rate")[:-2])
       vidCrT = nested.get("com.apple.quicktime.creationdate")[:-5]
     else:
-      vidFR = 120
       vidCrT = nested.get("creation_time")[:-8]
-  elif i.get("index") == 1:
-    if videoProvenance == "GoPro":
-      vidW = i.get("width")
-      vidH = i.get("height")    
 
 adjVidCrT = datetime.datetime.strptime(vidCrT, '%Y-%m-%dT%H:%M:%S')
 vidEndT = adjVidCrT + datetime.timedelta(seconds=vidLen)
 usefulMeta = [vidW, vidH, vidFR, vidLen, adjVidCrT, vidEndT]
 
-print(usefulMeta)
+# print(usefulMeta)
 
 hr = []
 timestampedHR = []
@@ -86,19 +75,30 @@ for i in data["laps"][0]["points"]:
               timestampedHR.append([hrTime, i.get("hr")])
         except:
            pass
-        # print(i.get("time"))
-        # print(datetime.datetime.fromtimestamp(i.get("time")))
+        
 timestampedHR.sort()
 print(timestampedHR)
 
 hrFrameUpdate = (usefulMeta[2] * vidLen) / len(hr)
 
 vidcap = cv2.VideoCapture(videoPath)
-success,currentFrame = vidcap.read()
+
 count = 0
 
+if usefulMeta[0] > usefulMeta[1]:
+  orientation = "Horizontal"
+  width = usefulMeta[0]
+  height = usefulMeta[1] + (usefulMeta[0] - usefulMeta[1])
+elif usefulMeta[0] < usefulMeta[1]:
+  orientation = "Vertical"
+  width = usefulMeta[0] + (usefulMeta[1] - usefulMeta[0])
+  height = usefulMeta[1]
+else:
+  width = usefulMeta[0]
+  height = usefulMeta[1]
+
 fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-writer = cv2.VideoWriter(sys.path[0] + "/overlayed.mov", fourcc, usefulMeta[2], (usefulMeta[1], usefulMeta[0]))
+writer = cv2.VideoWriter(sys.path[0] + "/overlayed.mov", fourcc, usefulMeta[2], (width, height))
 
 count = 0
 hrUpdate = 0
