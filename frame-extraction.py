@@ -9,7 +9,6 @@ import ffmpeg
 import copy
 
 # ToDo: Write a README
-# ToDo: Remove capitalisation in file extension search (i.e. mov MOV)
 # ToDo: Simplify moving HR to one of the corners of the image
 # ToDo: Start considering TimeStamps of every reading to make HR plotting more accurate
 # ToDo: Start thinking of ways of automatically accepting videos from different cameras (i.e. GoPro)
@@ -20,15 +19,15 @@ parent = os.getcwd()
 heart = cv2.imread("heart.png")
 
 for file in os.listdir(parent):
-    if file.endswith(".mov"):
+    if file.lower().endswith(".mov"):
       videoFile = file
       videoPath = os.path.join(parent, file)
       videoProvenance = "iPhone"
-    if file.endswith(".MP4"):
+    if file.lower().endswith(".mp4"):
       videoFile = file
       videoPath = os.path.join(parent, file)
       videoProvenance = "GoPro"
-    if file.endswith(".json"):
+    if file.lower().endswith(".json"):
       workoutDataFile = file
       workoutDataPath = open(os.path.join(parent, file))
 
