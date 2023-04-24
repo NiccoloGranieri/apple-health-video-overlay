@@ -28,7 +28,6 @@ for file in os.listdir(parent):
       workoutDataPath = open(os.path.join(parent, file))
 
 jsonMetadata = ffmpeg.probe(videoPath)
-
 format = jsonMetadata["format"]
 
 for i in jsonMetadata["streams"]:
@@ -49,6 +48,7 @@ usefulMeta = [vidW, vidH, vidFR, vidLen, adjVidCrT, vidEndT]
 
 timestampedHR = []
 timestampedKCAL = []
+totalKCAL = []
 
 data = json.load(workoutDataPath)
 
@@ -56,6 +56,8 @@ min = "00:00:00"
 max = str(datetime.time(0, int(usefulMeta[3] / 60), usefulMeta[3] % 60))
 for i in data["laps"][0]["points"]:
       readingTime = datetime.datetime.fromtimestamp(i.get("time"))
+      if i.get("kcal"):
+        totalKCAL.append([readingTime, i.get("kcal")])
       delta = readingTime - usefulMeta[4] if readingTime > usefulMeta[4] else "00:00:00"
       if datetime.datetime.strptime(str(delta), "%H:%M:%S") > datetime.datetime.strptime(min, "%H:%M:%S"):
         if datetime.datetime.strptime(str(delta), "%H:%M:%S") <= datetime.datetime.strptime(max, "%H:%M:%S"):
@@ -66,9 +68,23 @@ for i in data["laps"][0]["points"]:
         
 timestampedHR.sort()
 timestampedKCAL.sort()
+totalKCAL.sort()
 
 print(len(timestampedHR))
 print(len(timestampedKCAL))
+print(len(totalKCAL))
+
+previousKcal = 0
+totKcalUpdate = 0
+foundVidStart = False
+time = usefulMeta[4]
+for i in totalKCAL:
+  i[1] = i[1] + previousKcal
+  previousKcal = i[1]
+  if time > i[0] and not foundVidStart:
+    totKcalUpdate += 1
+  elif time <= i[0] and not foundVidStart:
+    foundVidStart = True
 
 vidcap = cv2.VideoCapture(videoPath)
 
@@ -83,6 +99,7 @@ elif usefulMeta[0] < usefulMeta[1]:
   width = usefulMeta[0] + (usefulMeta[1] - usefulMeta[0])
   height = usefulMeta[1]
 else:
+  orientation = "Square"
   width = usefulMeta[0]
   height = usefulMeta[1]
 
@@ -92,8 +109,8 @@ writer = cv2.VideoWriter(sys.path[0] + "/overlayed.mov", fourcc, usefulMeta[2], 
 count = 0
 hrUpdate = 0
 textPadding = 10
-time = usefulMeta[4]
 kcal = timestampedKCAL[hrUpdate][1]
+totKcal = totalKCAL[totKcalUpdate][1]
 
 print("Processing video...")
 if videoProvenance == "GoPro":
@@ -103,53 +120,57 @@ if videoProvenance == "GoPro":
   while frameIndex < expectedFrameCount and frameIndex >= 0:
       print("Frame {} of {}".format(frameIndex, expectedFrameCount))
       ret, frame = vidcap.read()
+
+      if not ret:
+        frameIndex -= 1
+        continue
       
       if orientation == "Horizontal":
         sqrFrame = cv2.copyMakeBorder(frame, int((usefulMeta[0] - usefulMeta[1]) / 2), int((usefulMeta[0] - usefulMeta[1]) / 2), 0, 0, cv2.BORDER_CONSTANT, 0)
       else:
         sqrFrame = cv2.copyMakeBorder(frame, 0, 0, int((usefulMeta[1] - usefulMeta[0]) / 2), int((usefulMeta[1] - usefulMeta[0]) / 2), cv2.BORDER_CONSTANT, 0)
-      
-      if not ret:
-        frameIndex -= 1
-        continue
 
       font = cv2.FONT_HERSHEY_SIMPLEX
 
-      bg_color = (0,0,0)
+      # bg_color = (0,0,0)
       
-      try:
-        hrFrame = np.full((sqrFrame.shape), bg_color, dtype=np.uint8)
-        kcalFrame = np.full((sqrFrame.shape), bg_color, dtype=np.uint8)
-      except:
-        pass
+      # try:
+      #   hrFrame = np.full((sqrFrame.shape), bg_color, dtype=np.uint8)
+      #   kcalFrame = np.full((sqrFrame.shape), bg_color, dtype=np.uint8)
+      # except:
+      #   pass
       
-      cv2.putText(hrFrame, str(timestampedHR[hrUpdate][1]), (80, sqrFrame.shape[1] - 200), font, 7, (0, 0, 255), 10, cv2.LINE_AA)
-      cv2.putText(kcalFrame, str(f'{kcal:.2f}'), (80, 200), font, 7, (0, 0, 255), 10, cv2.LINE_AA)
+      cv2.putText(sqrFrame, "Apple Watch 6 - Synced Data", (80, sqrFrame.shape[1] - 325), font, 3, (255, 255, 255), 5, cv2.LINE_AA)
+      sqrFrame[1625:1705,80:160,:] = heart[0:80,0:80,:]
+      # cv2.rectangle(sqrFrame, (80, 1650), (160, 1730), (0, 0, 255), -1)
+      cv2.putText(sqrFrame, str(timestampedHR[hrUpdate][1]) + " HR", (180, sqrFrame.shape[1] - 225), font, 3, (0, 0, 255), 5, cv2.LINE_AA)
+      cv2.putText(sqrFrame, "Exercise kcal " + str(f'{kcal:.2f}'), (80, sqrFrame.shape[1] - 130), font, 3, (0, 0, 255), 5, cv2.LINE_AA)
+      cv2.putText(sqrFrame, "Total workout kcal " + str(f'{totalKCAL[totKcalUpdate][1]:.2f}'), (80, sqrFrame.shape[1] - 25), font, 3, (0, 0, 255), 5, cv2.LINE_AA)
+      
+      # xHR,yHR,wHR,hHR = cv2.boundingRect(hrFrame[:,:,2])
+      # xKCAL,yKCAL,wKCAL,hKCAL = cv2.boundingRect(kcalFrame[:,:,2])
+      
+      # xHR -= textPadding
+      # yHR -= textPadding
+      # hHR += textPadding * 2
+      # wHR += textPadding * 2 + hHR
 
-      xHR,yHR,wHR,hHR = cv2.boundingRect(hrFrame[:,:,2])
-      xKCAL,yKCAL,wKCAL,hKCAL = cv2.boundingRect(kcalFrame[:,:,2])
-      
-      xHR -= textPadding
-      yHR -= textPadding
-      hHR += textPadding * 2
-      wHR += textPadding * 2 + hHR
+      # xKCAL -= textPadding
+      # yKCAL -= textPadding
+      # hKCAL += textPadding * 2
+      # wKCAL += textPadding * 2 + hKCAL
 
-      xKCAL -= textPadding
-      yKCAL -= textPadding
-      hKCAL += textPadding * 2
-      wKCAL += textPadding * 2 + hKCAL
-
-      hrFrame[yHR:yHR+180,xHR+wHR-180:xHR+wHR,:] = heart[0:180,0:180,:]
+      # hrFrame[yHR:yHR+180,xHR+wHR-180:xHR+wHR,:] = heart[0:180,0:180,:]
       
-      try:
-        result = sqrFrame.copy()
-      except:
-        pass
+      # try:
+      #   result = sqrFrame.copy()
+      # except:
+      #   pass
 
-      result[yHR:yHR+hHR, xHR:xHR+wHR] = hrFrame[yHR:yHR+hHR, xHR:xHR+wHR]
-      result[yKCAL:yKCAL+hKCAL, xKCAL:xKCAL+wKCAL] = kcalFrame[yKCAL:yKCAL+hKCAL, xKCAL:xKCAL+wKCAL]
+      # result[yHR:yHR+hHR, xHR:xHR+wHR] = hrFrame[yHR:yHR+hHR, xHR:xHR+wHR]
+      # result[yKCAL:yKCAL+hKCAL, xKCAL:xKCAL+wKCAL] = kcalFrame[yKCAL:yKCAL+hKCAL, xKCAL:xKCAL+wKCAL]
       
-      writer.write(result)
+      writer.write(sqrFrame)
 
       count += 1
 
@@ -161,6 +182,7 @@ if videoProvenance == "GoPro":
       elif time >= timestampedHR[hrUpdate][0] and hrUpdate < len(timestampedHR) - 1:
         hrUpdate += 1
         kcal += timestampedKCAL[hrUpdate][1]
+        totKcalUpdate += 1
         
       frameIndex += 1
 
