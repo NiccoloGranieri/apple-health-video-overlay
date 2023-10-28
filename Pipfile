@@ -7,8 +7,10 @@ name = "pypi"
 opencv-python = "*"
 numpy = "*"
 ffmpeg-python = "*"
+gopro2gpx = "*"
 
 [dev-packages]
+ipykernel = "*"
 
 [requires]
 python_version = "3.11"
