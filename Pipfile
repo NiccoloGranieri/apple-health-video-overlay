@@ -13,5 +13,5 @@ gopro2gpx = "*"
 ipykernel = "*"
 
 [requires]
-python_version = "3.11"
-python_full_version = "3.11.2"
+python_version = "3.12"
+python_full_version = "3.12.2"
