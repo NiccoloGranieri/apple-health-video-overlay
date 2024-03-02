@@ -7,7 +7,6 @@ import datetime
 import ffmpeg
 import csv
 
-# ToDo: Write a README
 # ToDo: Look at other data that could be potentially plotted
 # ToDo: Re-Add audio to exported video 
 
